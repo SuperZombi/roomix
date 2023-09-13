@@ -1,0 +1,29 @@
+#wrapper{
+	display: flex;
+	justify-content: space-between;
+}
+#chat{
+	align-self: flex-end;
+	max-height: 54vh;
+    overflow: auto;
+}
+#area{
+	width: 50%;
+	text-align: center;
+}
+
+#videoElement{
+	visibility: hidden;
+	height: 0;
+	width: 0;
+	position: fixed;
+}
+#canvasElement{
+	display: none;
+}
+#photo{
+	height: 360px;
+	width: 100%;
+	object-fit: contain;
+	background: black;
+}

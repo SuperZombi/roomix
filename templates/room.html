@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Chat</title>
+    <meta http-equiv='Content-Type' content='text/html; charset=utf-8'/>
+    <meta name='viewport' content='width=device-width'>
+    <link rel="stylesheet" type="text/css" href="/static/css/room.css">
+    <script type="text/javascript">
+        var room_id = '{{ room_id }}';
+        var username = '{{ username }}';
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js" defer></script>
+    <script src="/static/js/room.js"></script>
+</head>
+<body>
+    <h1 align="center">Video Chat</h1>
+    <div id="wrapper">
+        <div id="area">
+            <div id="container">
+                <video autoplay="true" muted="true" id="videoElement"></video>
+                <canvas id="canvasElement"></canvas>
+                <img id="photo">
+            </div>
+
+            <button id="startVideo">Start Video</button>
+            <button id="stopVideo">Stop Video</button>
+            <button id="startVoice">Start Voice</button>
+            <button id="stopVoice">Stop Voice</button>
+        </div>
+
+        <div id="chat">
+            <ul id="messages"></ul>
+            <input type="text">
+            <button onclick="send_message()">Send</button>
+        </div>
+    </div>
+    
+</body>
+</html>
