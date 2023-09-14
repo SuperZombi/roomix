@@ -13,27 +13,31 @@
     <script src="/static/js/room.js"></script>
 </head>
 <body>
-    <h1 align="center">Video Chat</h1>
-    <div id="wrapper">
-        <div id="area">
-            <div id="container">
-                <video autoplay="true" muted="true" id="videoElement"></video>
-                <canvas id="canvasElement"></canvas>
-                <img id="photo">
-            </div>
-
-            <button id="startVideo">Start Video</button>
-            <button id="stopVideo">Stop Video</button>
-            <button id="startVoice">Start Voice</button>
-            <button id="stopVoice">Stop Voice</button>
+    <div id="main-area">
+        <img id="photo">
+    </div>
+    <div id="controls-area">
+        <div id="controls">
+            <div class="button off" id="microphoneController"><img src="/static/images/mic_off.svg"></div>
+            <div class="button off" id="cameraController"><img src="/static/images/videocam_off.svg"></div>
         </div>
-
-        <div id="chat">
-            <ul id="messages"></ul>
-            <input type="text">
-            <button onclick="send_message()">Send</button>
+        <div id="right-area">
+            <div class="button" onclick="open_(this, '#chat')" id="open_chat_button"><img src="/static/images/chat.svg"></div>
         </div>
     </div>
-    
+
+    <div id="chat" class="close">
+        <img onclick="close_(this)" class="close_button" src="/static/images/close.svg">
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text">
+            <img id="send" class="disabled" onclick="send_message()" src="/static/images/send.svg">
+        </div>
+    </div>
+
+    <div>
+        <video autoplay="true" muted="true" id="videoElement"></video>
+        <canvas id="canvasElement"></canvas>
+    </div>
 </body>
 </html>

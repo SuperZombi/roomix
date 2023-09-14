@@ -6,13 +6,13 @@ window.onload = _=>{
     socket.emit('join_room', { 'username': username, 'room': room_id });
 
     socket.on('join_room', function(data) {
-        showMessage(`${data.from_user} joined room`);
+        showMessage('join', data.from_user)
     });
     socket.on('leave_room', function(data) {
-        showMessage(`${data.from_user} leave room`);
+        showMessage('leave', data.from_user)
     });
     socket.on('message', function(data) {
-        showMessage(`${data.from_user}: ${data.message}`);
+        showMessage('text', data.from_user, data.message)
     });
 
     socket.on('stream', function(data) {
@@ -30,12 +30,45 @@ window.onload = _=>{
         }
     });
 
-    document.getElementById('startVideo').onclick = startVideoChat;
-    document.getElementById('stopVideo').onclick = stopVideoChat;
-    document.getElementById('startVoice').onclick = startVoiceChat;
-    document.getElementById('stopVoice').onclick = stopVoiceChat;
+    var cameraController = document.getElementById('cameraController')
+    cameraController.onclick = _=>{
+        if (cameraController.classList.contains("off")){
+            cameraController.classList.remove("off")
+            cameraController.querySelector("img").src = "/static/images/videocam_on.svg"
+            startVideoChat()
+        } else{
+            cameraController.classList.add("off")
+            cameraController.querySelector("img").src = "/static/images/videocam_off.svg"
+            stopVideoChat()
+        }
+    }
+    var microphoneController = document.getElementById('microphoneController')
+    microphoneController.onclick = _=>{
+        if (microphoneController.classList.contains("off")){
+            microphoneController.classList.remove("off")
+            microphoneController.querySelector("img").src = "/static/images/mic_on.svg"
+            startVoiceChat()
+        } else{
+            microphoneController.classList.add("off")
+            microphoneController.querySelector("img").src = "/static/images/mic_off.svg"
+            stopVoiceChat()
+        }
+    }
 
-    document.querySelector("#chat input").addEventListener("keypress", function(event) {
+    document.querySelector("#open_chat_button").addEventListener("open", event=>{
+        event.target.classList.remove("notify")
+        let chat = document.querySelector("#chat #messages")
+        chat.scrollTop = chat.scrollHeight;
+    })
+    var chat_input = document.querySelector("#chat #input-area input");
+    chat_input.addEventListener("input", function(event) {
+        if (chat_input.value.trim() != ''){
+            document.querySelector("#chat #input-area #send").classList.remove("disabled")
+        } else{
+            document.querySelector("#chat #input-area #send").classList.add("disabled")
+        }
+    });
+    chat_input.addEventListener("keypress", function(event) {
         if (event.keyCode === 13) {
             send_message()
         }
@@ -166,24 +199,41 @@ window.onload = _=>{
     }
 }
 
-function showMessage(message){
-    let chat = document.querySelector("#chat")
+function showMessage(event, user, text=''){
+    let chat = document.querySelector("#chat #messages")
     let scrollAfter = false;
     if (chat.scrollTop + chat.clientHeight + 10 >= chat.scrollHeight){
         scrollAfter = true;
     }
-    let li = document.createElement('li')
-    li.innerHTML = message
-    document.querySelector("#messages").appendChild(li)
+
+    let div = document.createElement('div')
+    if (event == "join"){
+        div.classList.add("event")
+        div.innerHTML = `<span class="user">${user}</span> joined room`
+    }
+    else if (event == "leave"){
+        div.classList.add("event")
+        div.innerHTML = `<span class="user">${user}</span> leave room`
+    }
+    else{
+        div.innerHTML = `<span class="user">${user}</span>: ${text}`
+    }
+    document.querySelector("#messages").appendChild(div)
     if (scrollAfter){
         chat.scrollTop = chat.scrollHeight;
     }
+
+    if (document.querySelector("#chat").classList.contains("close")){
+        document.querySelector("#open_chat_button").classList.add("notify")
+    }
 }
+
 function send_message(){
-    let input = document.querySelector("#chat input")
+    let input = document.querySelector("#chat #input-area input");
     if (input.value.trim() != ''){
         socket.emit('send_message', { 'username': username, 'room': room_id, 'message': input.value });
         input.value = ""
+        document.querySelector("#chat #input-area #send").classList.add("disabled")
     }
 }
 
@@ -206,4 +256,13 @@ function writeUTFBytes(view, offset, string) {
     for (var i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
     }
+}
+
+const openEvent = new Event("open");
+function close_(button){
+    button.parentElement.classList.add("close")
+}
+function open_(button, selector){
+    document.querySelector(selector).classList.remove("close")
+    button.dispatchEvent(openEvent);
 }
