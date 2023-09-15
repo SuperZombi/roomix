@@ -16,28 +16,34 @@ window.onload = _=>{
     socket.on('leave_room', function(data) {
         showMessage('leave', data.user.name)
         removeUser(data.user)
+        stop_user_video(data.user.name)
     });
     socket.on('message', function(data) {
         showMessage('text', data.from_user, data.message)
     });
 
     socket.on('start_video', function(data) {
-        var fromUser = data.from_user;
+        start_user_video(data.from_user)
+    });
+    socket.on('stop_video', function(data) {
+        stop_user_video(data.from_user)
+    });
+    function start_user_video(username){
         let parent = document.querySelector("#main-area")
-        let frame = parent.querySelector(`.frame[user="${fromUser}"]`)
+        let frame = parent.querySelector(`.frame[user="${username}"]`)
         if (!frame){
             frame = document.createElement("div")
-            frame.setAttribute("user", fromUser)
+            frame.setAttribute("user", username)
             frame.classList.add("frame")
             parent.appendChild(frame)
         }
-    });
-    socket.on('stop_video', function(data) {
-        let frame = document.querySelector(`#main-area .frame[user="${data.from_user}"]`)
+    }
+    function stop_user_video(username){
+        let frame = document.querySelector(`#main-area .frame[user="${username}"]`)
         if (frame){
             frame.remove()
         }
-    });
+    }
 
     socket.on('stream', function(data) {
         var chunk = data.stream;
@@ -47,6 +53,8 @@ window.onload = _=>{
             let frame = document.querySelector(`#main-area .frame[user="${fromUser}"]`)
             if (frame){
                 frame.innerHTML = `<img src="${chunk}">`
+            } else{
+                start_user_video(fromUser)
             }
         }
         else if (data.type == "audio"){
