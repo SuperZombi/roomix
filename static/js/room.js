@@ -3,7 +3,11 @@ var socket;
 window.onload = _=>{
     socket = io.connect('http://' + document.domain + ':' + location.port);
 
-    socket.emit('join_room', { 'username': username, 'room': room_id });
+    socket.emit('join_room', { 'username': username, 'room': room_id }, (users)=>{
+        // users.forEach(user=>{
+            
+        // })
+    });
 
     socket.on('join_room', function(data) {
         showMessage('join', data.from_user)
@@ -15,12 +19,33 @@ window.onload = _=>{
         showMessage('text', data.from_user, data.message)
     });
 
+    socket.on('start_video', function(data) {
+        var fromUser = data.from_user;
+        let parent = document.querySelector("#main-area")
+        let frame = parent.querySelector(`.frame[user="${fromUser}"]`)
+        if (!frame){
+            frame = document.createElement("div")
+            frame.setAttribute("user", fromUser)
+            frame.classList.add("frame")
+            parent.appendChild(frame)
+        }
+    });
+    socket.on('stop_video', function(data) {
+        let frame = document.querySelector(`#main-area .frame[user="${data.from_user}"]`)
+        if (frame){
+            frame.remove()
+        }
+    });
+
     socket.on('stream', function(data) {
         var chunk = data.stream;
         var fromUser = data.from_user;
 
         if (data.type == "video"){
-            photo.setAttribute('src', chunk);
+            let frame = document.querySelector(`#main-area .frame[user="${fromUser}"]`)
+            if (frame){
+                frame.innerHTML = `<img src="${chunk}">`
+            }
         }
         else if (data.type == "audio"){
             var blob = new Blob([chunk], { type: 'audio/webm' });
@@ -77,13 +102,14 @@ window.onload = _=>{
     let localVideo = document.querySelector("#videoElement");
     let canvas = document.querySelector("#canvasElement");
     let ctx = canvas.getContext('2d');
-    var photo = document.getElementById('photo');
     var localVideoStream;
 
     function startVideoChat() {
         // navigator.mediaDevices.getUserMedia({ video: {width: 1280, height: 720} })
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(function (stream) {
+                socket.emit('event', { 'event': 'start_video', 'username': username, 'room': room_id });
+
                 let settings = stream.getVideoTracks()[0].getSettings()
                 let quality = {
                     "fps": settings.frameRate,
@@ -104,7 +130,7 @@ window.onload = _=>{
                     let dataURL = canvas.toDataURL('image/jpeg', 0.9);
                     socket.emit('segment', { 'username': username, 'room': room_id, 'type': 'video', 'stream': dataURL});
                 // }, 1000/quality.fps)
-                }, 40)
+                }, 50)
             })
     }
 
@@ -182,8 +208,8 @@ window.onload = _=>{
             });
 
             localVideo.srcObject = null;
-            photo.removeAttribute('src');
         }
+        socket.emit('event', { 'event': 'stop_video', 'username': username, 'room': room_id });
     }
 
     var voiceRecorderInterval;

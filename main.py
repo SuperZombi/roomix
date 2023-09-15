@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 import hashlib
 import time
 import re
+import json
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -12,12 +13,17 @@ class User():
     def __init__(self, name, id_):
         self.name = name
         self.id = id_
+        self.icon = f"https://ui-avatars.com/api/?name={name}&length=1&color=fff&background=random&bold=true&format=svg&size=512"
 
     def receive_message(self, event, message):
         emit(event, message, namespace='/', broadcast=True, room=self.id)
 
     def __repr__(self):
         return f"{self.name}"
+
+    def json(self):
+        ignore = ['id']
+        return {key: value for key, value in vars(self).items() if key not in ignore}
 
 class Room():
     def __init__(self, id_):
@@ -51,6 +57,9 @@ def get_room(room_id):
         if room.id == room_id:
             return room
     return False
+
+def serialize(arr):
+    return json.loads(json.dumps(arr, default=lambda cls: cls.json()))
 
 
 @app.route('/')
@@ -88,7 +97,7 @@ def handle_join_room(data):
         user = User(username, request.sid)
         room.add_user(user)
         room.send_message('join_room', {'from_user': username})
-    print(rooms)
+    return serialize(room.users)
 
 @socketio.on('disconnect')
 def handle_leave_room():
@@ -104,7 +113,6 @@ def handle_leave_room():
                 rooms = [i for i in rooms if i.id != room.id]
             else:
                 room.send_message('leave_room', {'from_user': user.name})
-    print(rooms)
 
 
 @socketio.on('send_message')
@@ -115,9 +123,7 @@ def handle_send_message(data):
     if not room: return
 
     message = data.get('message', '').strip()
-    if message == '':
-        return
-
+    if message == '': return
     room.send_message('message', {'from_user': username, 'message': message})
 
 
@@ -129,6 +135,14 @@ def segment(data):
             'from_user': data['username'],
             'type': data['type'],
             'stream': data['stream']
+        })
+
+@socketio.on('event')
+def event(data):
+    room = get_room(data['room'])
+    if room:
+        room.send_message(data['event'], {
+            'from_user': data['username']
         })
 
 
