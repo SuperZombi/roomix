@@ -1,7 +1,7 @@
 var socket;
 
 window.onload = _=>{
-    socket = io.connect('http://' + document.domain + ':' + location.port);
+    socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
     socket.emit('join_room', { 'username': username, 'room': room_id }, (users)=>{
         users.forEach(user=>{
