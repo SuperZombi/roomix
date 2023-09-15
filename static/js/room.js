@@ -1,6 +1,18 @@
 var socket;
 
 window.onload = _=>{
+	const url = new URL(window.location);
+	url.searchParams.delete('user');
+	window.history.pushState(null, '', url.toString());
+
+	if (username.trim() == ""){
+		let user_input = prompt("Please enter your name:")
+		if (user_input != null){
+			username = user_input;
+		} else{
+			window.location = "/"
+		}
+	}
 	socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
 	socket.emit('join_room', { 'username': username, 'room': room_id }, (users)=>{
@@ -50,12 +62,7 @@ window.onload = _=>{
 		var fromUser = data.from_user;
 
 		if (data.type == "video"){
-			let frame = document.querySelector(`#main-area .frame[user="${fromUser}"]`)
-			if (frame){
-				frame.innerHTML = `<img src="${chunk}">`
-			} else{
-				start_user_video(fromUser)
-			}
+			stream_user_video(fromUser, chunk)
 		}
 		else if (data.type == "audio"){
 			var blob = new Blob([chunk], { type: 'audio/webm' });
@@ -64,6 +71,14 @@ window.onload = _=>{
 			audioObj.play()
 		}
 	});
+	function stream_user_video(from_user, blob){
+		let frame = document.querySelector(`#main-area .frame[user="${from_user}"]`)
+		if (frame){
+			frame.innerHTML = `<img src="${blob}">`
+		} else{
+			start_user_video(from_user)
+		}
+	}
 
 	var cameraController = document.getElementById('cameraController')
 	cameraController.onclick = _=>{
@@ -118,7 +133,8 @@ window.onload = _=>{
 		// navigator.mediaDevices.getUserMedia({ video: {width: 1280, height: 720} })
 		navigator.mediaDevices.getUserMedia({ video: true })
 			.then(function (stream) {
-				socket.emit('event', { 'event': 'start_video', 'username': username, 'room': room_id });
+				socket.emit('event', { 'event': 'start_video', 'room': room_id });
+				start_user_video(username)
 
 				let settings = stream.getVideoTracks()[0].getSettings()
 				let quality = {
@@ -138,7 +154,8 @@ window.onload = _=>{
 				mediaRecorderInterval = setInterval(_=>{
 					ctx.drawImage(localVideo, 0, 0, targetWidth, targetHeight);
 					let dataURL = canvas.toDataURL('image/jpeg', 0.9);
-					socket.emit('segment', { 'username': username, 'room': room_id, 'type': 'video', 'stream': dataURL});
+					stream_user_video(username, dataURL)
+					socket.emit('segment', { 'room': room_id, 'type': 'video', 'stream': dataURL});
 				// }, 1000/quality.fps)
 				}, 50)
 			})
@@ -199,7 +216,7 @@ window.onload = _=>{
 					}
 
 					let blob = new Blob([view], { type: 'audio/wav' });
-					socket.emit('segment', { 'username': username, 'room': room_id, 'type': 'audio', 'stream': blob });
+					socket.emit('segment', { 'room': room_id, 'type': 'audio', 'stream': blob });
 				}
 				audioMediaStream.connect(audioRecorder);
 				audioRecorder.connect(audioContext.destination);
@@ -219,7 +236,8 @@ window.onload = _=>{
 
 			localVideo.srcObject = null;
 		}
-		socket.emit('event', { 'event': 'stop_video', 'username': username, 'room': room_id });
+		socket.emit('event', { 'event': 'stop_video', 'room': room_id });
+		stop_user_video(username)
 	}
 
 	var voiceRecorderInterval;

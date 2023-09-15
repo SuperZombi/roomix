@@ -53,7 +53,7 @@ class Room():
 
 	def send_message(self, event, message, ignore_user=None):
 		for user in self.users:
-			if ignore_user and user == ignore_user: return
+			if ignore_user and user == ignore_user: continue
 			user.receive_message(event, message)
 
 	def __repr__(self):
@@ -88,8 +88,7 @@ def new_room():
 
 @app.route('/room/<room_id>')
 def room(room_id):
-	username = request.args.get('user')
-	if not username: abort(401)
+	username = request.args.get('user', '')
 	room = get_room(room_id)
 	if not room: return redirect('/')
 	return render_template('room.html', room_id=room_id, username=username)
@@ -139,20 +138,24 @@ def handle_send_message(data):
 @socketio.on('segment')
 def segment(data):
 	room = get_room(data['room'])
-	if room:
-		room.send_message('stream', {
-			'from_user': data['username'],
-			'type': data['type'],
-			'stream': data['stream']
-		})
+	if not room: return
+	user = room.get_user("id", request.sid)
+	if not user: return
+	room.send_message('stream', {
+		'from_user': user.name,
+		'type': data['type'],
+		'stream': data['stream']
+	}, ignore_user=user)
 
 @socketio.on('event')
 def event(data):
 	room = get_room(data['room'])
-	if room:
-		room.send_message(data['event'], {
-			'from_user': data['username']
-		})
+	if not room: return
+	user = room.get_user("id", request.sid)
+	if not user: return
+	room.send_message(data['event'], {
+		'from_user': user.name
+	}, ignore_user=user)
 
 
 if __name__ == '__main__':
