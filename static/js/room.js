@@ -4,16 +4,18 @@ window.onload = _=>{
     socket = io.connect('http://' + document.domain + ':' + location.port);
 
     socket.emit('join_room', { 'username': username, 'room': room_id }, (users)=>{
-        // users.forEach(user=>{
-            
-        // })
+        users.forEach(user=>{
+            addUser(user)
+        })
     });
 
     socket.on('join_room', function(data) {
-        showMessage('join', data.from_user)
+        showMessage('join', data.user.name)
+        addUser(data.user)
     });
     socket.on('leave_room', function(data) {
-        showMessage('leave', data.from_user)
+        showMessage('leave', data.user.name)
+        removeUser(data.user)
     });
     socket.on('message', function(data) {
         showMessage('text', data.from_user, data.message)
@@ -238,7 +240,7 @@ function showMessage(event, user, text=''){
         div.innerHTML = `<span class="user">${user}</span> joined room`
     }
     else if (event == "leave"){
-        div.classList.add("event")
+        div.classList.add("event", "red")
         div.innerHTML = `<span class="user">${user}</span> leave room`
     }
     else{
@@ -260,6 +262,29 @@ function send_message(){
         socket.emit('send_message', { 'username': username, 'room': room_id, 'message': input.value });
         input.value = ""
         document.querySelector("#chat #input-area #send").classList.add("disabled")
+    }
+}
+function addUser(user){
+    let div = document.createElement("div")
+    div.className = "user"
+    div.setAttribute("name", user.name)
+    div.innerHTML = `<img src="${user.icon}"><span>${user.name}</span>`
+    document.querySelector("#users-list").appendChild(div)
+    let counter = document.querySelector("#users-counter")
+    let current = parseInt(counter.getAttribute("value"))
+    current += 1;
+    counter.setAttribute("value", current)
+    counter.querySelector("span").innerHTML = current
+}
+function removeUser(user){
+    let el = document.querySelector(`#users-list .user[name="${user.name}"]`)
+    if (el){
+        el.remove()
+        let counter = document.querySelector("#users-counter")
+        let current = parseInt(counter.getAttribute("value"))
+        current -= 1;
+        counter.setAttribute("value", current)
+        counter.querySelector("span").innerHTML = current
     }
 }
 

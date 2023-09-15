@@ -16,6 +16,9 @@
     <div id="main-area"></div>
     
     <div id="controls-area">
+        <div id="left-area">
+            <div class="button" onclick="open_(this, '#users')" id="open_users_button"><img src="/static/images/user.svg"></div>
+        </div>
         <div id="controls">
             <div class="button off" id="microphoneController"><img src="/static/images/mic_off.svg"></div>
             <div class="button off" id="cameraController"><img src="/static/images/videocam_off.svg"></div>
@@ -25,13 +28,20 @@
         </div>
     </div>
 
-    <div id="chat" class="close">
+    <div id="chat" class="slide-menu right-menu close">
         <img onclick="close_(this)" class="close_button" src="/static/images/close.svg">
         <div id="messages"></div>
         <div id="input-area">
             <input type="text">
             <img id="send" class="disabled" onclick="send_message()" src="/static/images/send.svg">
         </div>
+    </div>
+
+    <div id="users" class="slide-menu left-menu close">
+        <h3 id="users-counter" value="0">Users: <span>0</span></h3>
+        <hr>
+        <img onclick="close_(this)" class="close_button" src="/static/images/close.svg">
+        <div id="users-list"></div>
     </div>
 
     <div>

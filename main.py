@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect, abort
-from flask_socketio import SocketIO, join_room, leave_room, emit
+from flask import Flask, render_template, request, redirect, abort
+from flask_socketio import SocketIO, emit
 import hashlib
 import time
 import re
@@ -18,6 +18,11 @@ class User():
     def receive_message(self, event, message):
         emit(event, message, namespace='/', broadcast=True, room=self.id)
 
+    def __eq__(self, other):
+        return self.id == other.id and self.name == other.name
+    def __ne__(self, other):
+        return not (self == other)
+
     def __repr__(self):
         return f"{self.name}"
 
@@ -34,7 +39,7 @@ class Room():
         self.users.append(user)
 
     def remove_user(self, user):
-        self.users = [i for i in self.users if i.id != user.id]
+        self.users = [i for i in self.users if i != user]
         return len(self.users) == 0
 
     def get_user(self, atr, val):
@@ -43,8 +48,9 @@ class Room():
     def user_exists(self, username):
         return any(i.name == username for i in self.users)
 
-    def send_message(self, event, message):
+    def send_message(self, event, message, ignore_user=None):
         for user in self.users:
+            if ignore_user and user == ignore_user: return
             user.receive_message(event, message)
 
     def __repr__(self):
@@ -96,7 +102,7 @@ def handle_join_room(data):
     if not room.user_exists(username):
         user = User(username, request.sid)
         room.add_user(user)
-        room.send_message('join_room', {'from_user': username})
+        room.send_message('join_room', {'user': serialize(user)}, ignore_user=user)
     return serialize(room.users)
 
 @socketio.on('disconnect')
@@ -112,7 +118,7 @@ def handle_leave_room():
             if need_remove_room:
                 rooms = [i for i in rooms if i.id != room.id]
             else:
-                room.send_message('leave_room', {'from_user': user.name})
+                room.send_message('leave_room', {'user': serialize(user)})
 
 
 @socketio.on('send_message')
