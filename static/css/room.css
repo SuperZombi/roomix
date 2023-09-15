@@ -39,8 +39,7 @@ body{
 	background: black;
 	border-radius: 10px;
 	overflow: hidden;
-	border: 1px solid white;
-	box-sizing: border-box;
+	filter: drop-shadow(0 0 5px black);
 }
 #main-area .frame img{
 	height: 100%;
