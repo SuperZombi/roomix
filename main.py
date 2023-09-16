@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, abort
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, disconnect, ConnectionRefusedError
 import hashlib
 import time
 import re
@@ -13,10 +13,11 @@ socketio = SocketIO(app)
 
 
 class User():
-	def __init__(self, name, id_):
+	def __init__(self, name, id_, icon, is_bot):
 		self.name = name
 		self.id = id_
-		self.icon = f"https://ui-avatars.com/api/?name={name}&length=1&color=fff&background=random&bold=true&format=svg&size=512"
+		self.isBot = is_bot
+		self.icon = icon if icon else f"https://ui-avatars.com/api/?name={name}&length=1&color=fff&background=random&bold=true&format=svg&size=512"
 
 	def receive_message(self, event, message):
 		emit(event, message, namespace='/', broadcast=True, room=self.id)
@@ -43,7 +44,11 @@ class Room():
 
 	def remove_user(self, user):
 		self.users = [i for i in self.users if i != user]
-		return len(self.users) == 0
+		return len([i for i in self.users if not i.isBot]) == 0
+
+	def disconnect_all(self):
+		for user in self.users:
+			disconnect(user.id)
 
 	def get_user(self, atr, val):
 		return next((user for user in self.users if getattr(user, atr) == val), None)
@@ -54,6 +59,7 @@ class Room():
 	def send_message(self, event, message, ignore_user=None):
 		for user in self.users:
 			if ignore_user and user == ignore_user: continue
+			if user.isBot and event != "message": continue
 			user.receive_message(event, message)
 
 	def __repr__(self):
@@ -94,45 +100,68 @@ def room(room_id):
 	return render_template('room.html', room_id=room_id, username=username)
 
 
-@socketio.on('join_room')
-def handle_join_room(data):
-	username = data.get('username')
-	if not username: return
-	room = get_room(data['room'])
-	if not room: return
+@socketio.on('connect')
+def handle_join_room():
+	username = request.args.get('username')
+	if not username:
+		raise ConnectionRefusedError('Unauthorized!')
+	
+	is_bot = False
+	if request.referrer:
+		pattern = r'/room/([^?]+)'
+		match = re.search(pattern, request.referrer)
+		room_id = match.group(1)
+	else:
+		room_id = request.args.get('room')
+		is_bot = True
 
-	if not room.user_exists(username):
-		user = User(username, request.sid)
-		room.add_user(user)
-		room.send_message('join_room', {'user': serialize(user)}, ignore_user=user)
-	return serialize(room.users)
+	room = get_room(room_id)
+	if not room:
+		raise ConnectionRefusedError('Room does not exist!')
+
+	if room.user_exists(username):
+		raise ConnectionRefusedError('User already exist!')
+
+	icon = request.headers.get("icon")
+	user = User(username, request.sid, icon=icon, is_bot=is_bot)
+	room.add_user(user)
+	room.send_message('join_room', {'user': serialize(user)}, ignore_user=user)
+	if not is_bot:
+		user.receive_message("connected", serialize(room.users))
+
 
 @socketio.on('disconnect')
 def handle_leave_room():
 	global rooms
-	pattern = r'/room/([^?]+)'
-	match = re.search(pattern, request.referrer)
-	room = get_room(match.group(1))
-	if room:
-		user = room.get_user("id", request.sid)
-		if user:
-			need_remove_room = room.remove_user(user)
-			if need_remove_room:
-				rooms = [i for i in rooms if i.id != room.id]
-			else:
-				room.send_message('leave_room', {'user': serialize(user)})
+	if request.referrer:
+		pattern = r'/room/([^?]+)'
+		match = re.search(pattern, request.referrer)
+		room_id = match.group(1)
+	else:
+		room_id = request.args.get('room')
+	if room_id:
+		room = get_room(room_id)
+		if room:
+			user = room.get_user("id", request.sid)
+			if user:
+				need_remove_room = room.remove_user(user)
+				if need_remove_room:
+					room.disconnect_all()
+					rooms = [i for i in rooms if i.id != room.id]
+				else:
+					room.send_message('leave_room', {'user': serialize(user)})
 
 
 @socketio.on('send_message')
 def handle_send_message(data):
-	username = data.get('username')
-	if not username: return
 	room = get_room(data['room'])
 	if not room: return
+	user = room.get_user("id", request.sid)
+	if not user: return
 
 	message = data.get('message', '').strip()
 	if message == '': return
-	room.send_message('message', {'from_user': username, 'message': message})
+	room.send_message('message', {'from_user': user.name, 'message': message, 'room': room.id})
 
 
 @socketio.on('segment')

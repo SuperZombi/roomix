@@ -6,16 +6,31 @@ window.onload = _=>{
 	window.history.pushState(null, '', url.toString());
 
 	if (username.trim() == ""){
-		let user_input = prompt("Please enter your name:")
-		if (user_input != null){
-			username = user_input;
+		if (localStorage.getItem("username")){
+			username = localStorage.getItem("username")
 		} else{
-			window.location = "/"
+			let user_input = prompt("Please enter your name:")
+			if (user_input != null){
+				username = user_input.trim();
+				localStorage.setItem("username", username)
+			} else{
+				window.location = "/"
+			}
 		}
 	}
-	socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+	socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port,
+		{ query: `username=${username}`,
+		// extraHeaders: { Icon: null }
+	});
+	socket.on('connect_error', (error) => {
+		console.error(error)
+		setTimeout(()=>{
+			alert("Error!")
+			window.location = "/"
+		}, 10)
+	});
 
-	socket.emit('join_room', { 'username': username, 'room': room_id }, (users)=>{
+	socket.on('connected', function(users) {
 		users.forEach(user=>{
 			addUser(user)
 		})
@@ -65,7 +80,7 @@ window.onload = _=>{
 			stream_user_video(fromUser, chunk)
 		}
 		else if (data.type == "audio"){
-			var blob = new Blob([chunk], { type: 'audio/webm' });
+			var blob = new Blob([chunk]);
 			var audioUrl = URL.createObjectURL(blob);
 			let audioObj = new Audio(audioUrl);
 			audioObj.play()
@@ -253,6 +268,12 @@ window.onload = _=>{
 	}
 }
 
+function urlify(text) {
+	var urlRegex = /(https?:\/\/[^\s]+)/g;
+	return text.replace(urlRegex, function(url) {
+		return '<a target="_blank" href="' + url + '">' + url + '</a>';
+	})
+}
 function showMessage(event, user, text=''){
 	let chat = document.querySelector("#chat #messages")
 	let scrollAfter = false;
@@ -270,7 +291,7 @@ function showMessage(event, user, text=''){
 		div.innerHTML = `<span class="user">${user}</span> leave room`
 	}
 	else{
-		div.innerHTML = `<span class="user">${user}</span>: ${text}`
+		div.innerHTML = `<span class="user">${user}: </span>${urlify(text)}`
 	}
 	document.querySelector("#messages").appendChild(div)
 	if (scrollAfter){
@@ -285,14 +306,15 @@ function showMessage(event, user, text=''){
 function send_message(){
 	let input = document.querySelector("#chat #input-area input");
 	if (input.value.trim() != ''){
-		socket.emit('send_message', { 'username': username, 'room': room_id, 'message': input.value });
+		socket.emit('send_message', { 'room': room_id, 'message': input.value });
 		input.value = ""
 		document.querySelector("#chat #input-area #send").classList.add("disabled")
 	}
 }
 function addUser(user){
 	let div = document.createElement("div")
-	div.className = "user"
+	div.classList.add("user")
+	if (user.isBot){div.classList.add("bot")}
 	div.setAttribute("name", user.name)
 	div.innerHTML = `<img src="${user.icon}"><span>${user.name}</span>`
 	document.querySelector("#users-list").appendChild(div)
