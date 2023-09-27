@@ -3,6 +3,7 @@ import asyncio
 import cv2
 import base64
 import subprocess
+import datetime
 
 socket = socketio.AsyncClient()
 server = "http://localhost:5000"
@@ -38,32 +39,18 @@ async def stream_video(room, url):
 	cap.set(cv2.CAP_PROP_FPS, fps)
 	# fps = round(cap.get(cv2.CAP_PROP_FPS))
 
-	sample_size = 14000
-	cmd_audio = [
-		"ffmpeg",
-		"-i", url,
-		'-vn',
-        '-f', 's16le',
-        '-c:a', 'pcm_s16le',
-        "-ac", "2",
-
-        # "-sample_size",str(sample_size),
-        "-sample_rate","48000",
-        '-ar','48000',
-
-        # '-acodec','acc',
-        "-acodec","libmp3lame",
-        # "-f","mp3",
-        "pipe:1"
-	]
-	proc_audio = await asyncio.create_subprocess_exec(
-		*cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-	)
+	audioSec = 0
 
 	while True:
-		audio_data = await proc_audio.stdout.read(sample_size)
-		if audio_data:
-			await socket.emit('segment', { 'room': room, 'type': 'audio', 'stream': audio_data})
+		cmd_audio = ["ffmpeg", "-i", url, '-vn', '-ss', str(datetime.timedelta(seconds=audioSec)),
+					'-to', str(datetime.timedelta(seconds=audioSec+1)), '-f', 's16le', '-c:a', 'pcm_s16le',
+					"-ac", "2", "-sample_rate","48000", '-ar','48000', "-acodec","libmp3lame", "pipe:1"]
+
+		proc = subprocess.Popen(cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+		stdout, stderr = proc.communicate()
+		audioSec+=1
+		if proc.returncode == 0:
+			await socket.emit('segment', { 'room': room, 'type': 'audio', 'stream': stdout})
 
 			for i in range(fps):
 				ret, frame = cap.read()
