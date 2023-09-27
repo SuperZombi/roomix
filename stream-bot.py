@@ -18,7 +18,6 @@ async def message(data):
 	if data['message'].startswith('https://'):
 		url = data['message']
 		room = data["room"]
-		asyncio.create_task(stream_audio(room, url))
 		asyncio.create_task(stream_video(room, url))
 
 @socket.event
@@ -34,27 +33,12 @@ def connect_error(message):
 async def stream_video(room, url):
 	await socket.emit('event', { 'event': 'start_video', 'room': room })
 	
-	desired_fps = 20
+	fps = 20
 	cap = cv2.VideoCapture(url)
-	cap.set(cv2.CAP_PROP_FPS, desired_fps)
+	cap.set(cv2.CAP_PROP_FPS, fps)
+	# fps = round(cap.get(cv2.CAP_PROP_FPS))
 
-	while True:
-		ret, frame = cap.read()
-		if not ret: break
-		_, img_bytes = cv2.imencode(".jpg", frame)
-		img_base64 = base64.b64encode(img_bytes).decode('utf-8')
-		img_data_url = f"data:image/jpeg;base64,{img_base64}"
-
-		await socket.emit('segment', { 'room': room, 'type': 'video', 'stream': img_data_url})
-
-		print("Streaming video...", end="\r")
-		await asyncio.sleep(1/desired_fps)
-
-	cap.release()
-
-async def stream_audio(room, url):
 	sample_size = 14000
-
 	cmd_audio = [
 		"ffmpeg",
 		"-i", url,
@@ -63,7 +47,7 @@ async def stream_audio(room, url):
         '-c:a', 'pcm_s16le',
         "-ac", "2",
 
-        "-sample_size",str(sample_size),
+        # "-sample_size",str(sample_size),
         "-sample_rate","48000",
         '-ar','48000',
 
@@ -72,9 +56,8 @@ async def stream_audio(room, url):
         # "-f","mp3",
         "pipe:1"
 	]
-
 	proc_audio = await asyncio.create_subprocess_exec(
-		*cmd_audio, stdout=subprocess.PIPE, stderr=False
+		*cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
 	)
 
 	while True:
@@ -82,7 +65,19 @@ async def stream_audio(room, url):
 		if audio_data:
 			await socket.emit('segment', { 'room': room, 'type': 'audio', 'stream': audio_data})
 
-		await asyncio.sleep(1)
+			for i in range(fps):
+				ret, frame = cap.read()
+				if not ret: break
+				_, img_bytes = cv2.imencode(".jpg", frame)
+				img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+				img_data_url = f"data:image/jpeg;base64,{img_base64}"
+
+				await socket.emit('segment', { 'room': room, 'type': 'video', 'stream': img_data_url})
+
+				print("Streaming video...", end="\r")
+				await asyncio.sleep(1/fps)
+
+	cap.release()
 
 
 async def main():
