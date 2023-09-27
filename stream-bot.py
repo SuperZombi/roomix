@@ -34,9 +34,9 @@ def connect_error(message):
 async def stream_video(room, url):
 	await socket.emit('event', { 'event': 'start_video', 'room': room })
 	
-	desired_fps = 20
 	cap = cv2.VideoCapture(url)
-	cap.set(cv2.CAP_PROP_FPS, desired_fps)
+	# cap.set(cv2.CAP_PROP_FPS, 20)
+	fps = round(cap.get(cv2.CAP_PROP_FPS))
 
 	while True:
 		ret, frame = cap.read()
@@ -48,12 +48,12 @@ async def stream_video(room, url):
 		await socket.emit('segment', { 'room': room, 'type': 'video', 'stream': img_data_url})
 
 		print("Streaming video...", end="\r")
-		await asyncio.sleep(1/desired_fps)
+		await asyncio.sleep(1/fps)
 
 	cap.release()
 
 async def stream_audio(room, url):
-	sample_size = 14000
+	sample_size = 14464
 
 	cmd_audio = [
 		"ffmpeg",
@@ -62,19 +62,14 @@ async def stream_audio(room, url):
         '-f', 's16le',
         '-c:a', 'pcm_s16le',
         "-ac", "2",
-
-        "-sample_size",str(sample_size),
         "-sample_rate","48000",
         '-ar','48000',
-
-        # '-acodec','acc',
         "-acodec","libmp3lame",
-        # "-f","mp3",
         "pipe:1"
 	]
 
 	proc_audio = await asyncio.create_subprocess_exec(
-		*cmd_audio, stdout=subprocess.PIPE, stderr=False
+		*cmd_audio, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
 	)
 
 	while True:
